@@ -90,6 +90,56 @@ func TestValues_BasicTypes(t *testing.T) {
 			}{time.Date(2000, 1, 1, 12, 34, 56, 0, time.UTC)},
 			url.Values{"V": {"2000-01-01"}},
 		},
+
+		// duration values
+		{
+			struct {
+				V time.Duration `url:",min"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"1461"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",sec"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",milli"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634456"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",sec" prec:"0"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",sec" prec:"2"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634.46"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",sec" prec:"-1"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634.456789123"}},
+		},
+		{
+			struct {
+				V time.Duration `url:",sec" prec:"invalid"`
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"87634"}},
+		},
+		{
+			struct {
+				V time.Duration
+			}{time.Hour*24 + time.Second*1234 + time.Nanosecond*456789123},
+			url.Values{"V": {"24h20m34.456789123s"}},
+		},
 	}
 
 	for _, tt := range tests {

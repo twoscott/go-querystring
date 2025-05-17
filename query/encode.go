@@ -29,9 +29,11 @@ import (
 	"time"
 )
 
-var timeType = reflect.TypeOf(time.Time{})
-
-var encoderType = reflect.TypeOf(new(Encoder)).Elem()
+var (
+	timeType     = reflect.TypeOf(time.Time{})
+	durationType = reflect.TypeOf(time.Duration(0))
+	encoderType  = reflect.TypeOf(new(Encoder)).Elem()
+)
 
 // Encoder is an interface implemented by any type that wishes to encode
 // itself into URL values in a non-standard way.
@@ -89,6 +91,20 @@ type Encoder interface {
 //
 //	// Encode a time.Time as YYYY-MM-DD
 //	Field time.Time `layout:"2006-01-02"`
+//
+// time.Duration values default to encoding as a duration string ("72h3m0.5s").
+// Including the "min", "sec", or "milli" options in the "url" tag signals that
+// the field should be encoded in the given time unit. The "prec" tag can be
+// used to specify the number of decimal places to include in the encoded
+// value for "min" and "sec". If "prec" is not set or is 0, the value will be
+// rounded to the nearest integer (see strconv.FormatFloat()). For example:
+//
+//	// Encode a time.Duration as a rounded number of seconds
+//	Field time.Duration `url:",sec"`
+//
+//	// Encode a time.Duration as a number of seconds with a precision of 2
+//	decimal places
+//	Field time.Duration `url:",sec" prec:"2"`
 //
 // Slice and Array values default to encoding as multiple URL values of the
 // same name.  Including the "comma" option signals that the field should be
@@ -297,7 +313,7 @@ func valueString(v reflect.Value, opts tagOptions, sf reflect.StructField) strin
 			return strconv.FormatInt(t.Unix(), 10)
 		}
 		if opts.Contains("unixmilli") {
-			return strconv.FormatInt((t.UnixNano() / 1e6), 10)
+			return strconv.FormatInt((t.UnixMilli()), 10)
 		}
 		if opts.Contains("unixnano") {
 			return strconv.FormatInt(t.UnixNano(), 10)
@@ -306,6 +322,24 @@ func valueString(v reflect.Value, opts tagOptions, sf reflect.StructField) strin
 			return t.Format(layout)
 		}
 		return t.Format(time.RFC3339)
+	}
+
+	if v.Type() == durationType {
+		d := v.Interface().(time.Duration)
+		var prec int
+		if p := sf.Tag.Get("prec"); p != "" {
+			prec, _ = strconv.Atoi(p)
+		}
+		if opts.Contains("min") {
+			return strconv.FormatFloat(d.Minutes(), 'f', prec, 64)
+		}
+		if opts.Contains("sec") {
+			return strconv.FormatFloat(d.Seconds(), 'f', prec, 64)
+		}
+		if opts.Contains("milli") {
+			return strconv.FormatInt(d.Milliseconds(), 10)
+		}
+		return d.String()
 	}
 
 	return fmt.Sprint(v.Interface())
